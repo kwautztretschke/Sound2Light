@@ -9,16 +9,18 @@ CHANNELS = 2
 RATE = 44100
 
 # Persistent variable to track the maximum energy encountered
-max_energy = 1.0  # Initial value set to 1.0 to avoid division by zero
+max_energy = 2e7  # Set initial value to 20 million (2e7)
+min_energy_cap = 2e7  # Set the minimum cap to 20 million (2e7)
+decay_factor = 0.995  # Decay factor (adjust as needed)
 
 def normalize_energy(energy):
     global max_energy
 
-    # Update the maximum energy if the current energy is higher
-    max_energy = max(max_energy, energy)
+    # Update the maximum energy and apply the decay factor
+    max_energy = max(energy, max_energy * decay_factor, min_energy_cap)
 
-    # Normalize the energy value to fit within the progress bar range (0 to 100)
-    normalized_energy = energy / max_energy * 100
+    # Normalize the energy value to fit within the progress bar range (0 to 255)
+    normalized_energy = int(energy / max_energy * 255)
 
     return normalized_energy
 
@@ -29,13 +31,16 @@ def audio_stream_callback(in_data, frame_count, time_info, status_flags):
     # Calculate the squared magnitude (energy) of the audio data
     energy = np.sum(audio_data**2) / len(audio_data)
 
-    # Normalize the energy value to fit within the progress bar range (0 to 100)
+    # Normalize the energy value to fit within the progress bar range (0 to 255)
     normalized_energy = normalize_energy(energy)
 
     # Print the energy (loudness) value as a bar graph
-    bar = Bar('Loudness (Energy)', max=100)
-    bar.goto(int(normalized_energy))
+    bar = Bar('Loudness (Energy)', max=255)
+    bar.goto(normalized_energy)
     bar.finish()
+
+    # Print the current max_energy
+    print(f"Max Energy: {max_energy:8.0f}", end='\r', flush=True)
 
     # Return None for the output audio data (playback stream is not used)
     return None, pyaudio.paContinue
