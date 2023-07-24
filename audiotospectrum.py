@@ -1,6 +1,8 @@
+import argparse
 import pyaudio
 import numpy as np
 from progress.bar import Bar
+import socket
 
 # Constants for audio settings
 CHUNK_SIZE = 1024
@@ -13,6 +15,25 @@ max_energy = 2e7  # Set initial value to 20 million (2e7)
 min_energy_cap = 2e7  # Set the minimum cap to 20 million (2e7)
 decay_factor = 0.995  # Decay factor (adjust as needed)
 
+# List to store IP addresses and their corresponding color hex codes as tuples
+ip_colors = []
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Stream audio loudness to specified IP addresses with colors.")
+    parser.add_argument("-u", "--udp", nargs=2, action='append', metavar=("IP_ADDRESS", "HEX_CODE"),
+                        help="IP addresses and color hex codes to stream to. "
+                             "Usage: -u <ip address> <hex code> -u <ip address> <hex code>...",
+                        required=True)
+    args = parser.parse_args()
+
+    # Create a list of tuples with IP addresses and their corresponding color hex codes
+    for udp_object in args.udp:
+        if len(udp_object) != 2:
+            raise ValueError("Each IP address must have a corresponding color hex code.")
+        ip_address = udp_object[0]
+        hex_code = udp_object[1]
+        ip_colors.append((ip_address, hex_code))
+
 def normalize_energy(energy):
     global max_energy
 
@@ -23,6 +44,23 @@ def normalize_energy(energy):
     normalized_energy = int(energy / max_energy * 255)
 
     return normalized_energy
+
+def send_color_to_ip(ip, color_hex, loudness):
+    # Convert the color hex code to RGB values
+    red = int(color_hex[1:3], 16)
+    green = int(color_hex[3:5], 16)
+    blue = int(color_hex[5:7], 16)
+
+    # Scale the RGB values based on the loudness
+    scaled_red = red * loudness // 255
+    scaled_green = green * loudness // 255
+    scaled_blue = blue * loudness // 255
+
+    # Send the color to the specified IP address via UDP
+    color_bytes = bytes([4, scaled_red, scaled_green, scaled_blue])
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.sendto(color_bytes, (ip, 26091))
+    sock.close()
 
 def audio_stream_callback(in_data, frame_count, time_info, status_flags):
     # Convert the binary audio data to a numpy array of 32-bit floating-point numbers (float32)
@@ -39,13 +77,17 @@ def audio_stream_callback(in_data, frame_count, time_info, status_flags):
     bar.goto(normalized_energy)
     bar.finish()
 
-    # Print the current max_energy
-    print(f"Max Energy: {max_energy:8.0f}", end='\r', flush=True)
+    # Update the colors for each IP address with the scaled loudness value
+    for ip, color_hex in ip_colors:
+        send_color_to_ip(ip, color_hex, normalized_energy)
 
     # Return None for the output audio data (playback stream is not used)
     return None, pyaudio.paContinue
 
 def main():
+    # Parse command-line arguments
+    parse_arguments()
+
     # Initialize PyAudio
     p = pyaudio.PyAudio()
 
