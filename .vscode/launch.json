@@ -10,6 +10,7 @@
 			"request": "launch",
 			"program": "${file}",
 			"console": "integratedTerminal",
+			"args": "-u 10.69.0.71 00FF00 -u 10.69.0.75 FFFF00 -c -f"
 			"justMyCode": true
 		}
 	]
