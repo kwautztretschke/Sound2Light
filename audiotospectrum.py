@@ -32,8 +32,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Stream audio loudness to specified IP addresses with colors.")
     parser.add_argument("-u", "--udp", nargs=2, action='append', metavar=("IP_ADDRESS", "HEX_CODE"),
                         help="IP addresses and color hex codes to stream to. "
-                             "Usage: -u <ip address> <hex code> -u <ip address> <hex code>...",
-                        required=True)
+                             "Usage: -u <ip address> <hex code> -u <ip address> <hex code>...")
     parser.add_argument("-c", "--console", action='store_true', help="Display the progress bar in the console.")
     parser.add_argument("-f", "--framerate", action='store_true', help="Display the frequency (frame rate) of the UDP colors being sent out.")
     args = parser.parse_args()
@@ -48,6 +47,9 @@ def parse_arguments():
         # Remove the "#" if present in the color hex code
         if hex_code.startswith("#"):
             hex_code = hex_code[1:]
+		# Remove "0x" if present in the color hex code
+        if hex_code.startswith("0x"):
+            hex_code = hex_code[2:]
 
         ip_colors.append((ip_address, hex_code))
 
