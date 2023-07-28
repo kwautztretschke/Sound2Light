@@ -4,12 +4,16 @@ import numpy as np
 from progress.bar import Bar
 import socket
 import time
+import paho.mqtt.client as paho
 
 # Constants for audio settings
 CHUNK_SIZE = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
+
+# MQTT config
+broker_address = "10.69.0.69"
 
 # Persistent variable to track the maximum energy encountered
 max_energy = 2e7  # Set initial value to 20 million (2e7)
@@ -26,6 +30,7 @@ sequence_number = 0 # sequence number for artnet packets
 # Global flags for commandline arguments
 console = False
 framerate = False
+mqtt = False
 
 # Variable to track the frame count
 global_frame_count = 0
@@ -36,12 +41,14 @@ def parse_arguments():
 						help="Art-Net IP address to stream loudness to.")
 	parser.add_argument("-c", "--console", action='store_true', help="Display the progress bar in the console.")
 	parser.add_argument("-f", "--framerate", action='store_true', help="Display the frequency (frame rate) of the UDP colors being sent out.")
+	parser.add_argument("-m", "--mqtt", action='store_true', help="Send a message over MQTT that music is playing.")
 	args = parser.parse_args()
 
-	global fartnet_ips, console, framerate
+	global fartnet_ips, console, framerate, mqtt
 	fartnet_ips = args.artnet
 	console = args.console
 	framerate = args.framerate
+	mqtt = args.mqtt
 
 def normalize_energy(energy):
 	global max_energy
@@ -81,13 +88,13 @@ def send_art_dmx_packet(ip_address, universe, data):
 
 	# Create the header
 	header = bytearray()
-	header.extend(b'Art-Net\x00')  # 8 bytes: Protocol ID (fixed string with null terminator)
-	header.extend(b'\x00\x50')     # 2 bytes: OpCode (ArtDmx = 0x5000)
-	header.extend(b'\x00\x0e')     # 2 bytes: Protocol version (14)
+	header.extend(b'Art-Net\x00')  # 8 bytes String: Protocol ID (fixed string with null terminator)
+	header.extend(b'\x00\x50')     # 2 bytes Little Endian: OpCode (ArtDmx = 0x5000)
+	header.extend(b'\x00\x0e')     # 2 bytes Big Endian: Protocol version (14)
 	header.extend(sequence_number.to_bytes(1, byteorder='big'))  # 1 byte: Sequence number (8-bit)
 	header.extend(0x00.to_bytes(1, byteorder='big'))  # 1 byte: Physical port (set to 0)
-	header.extend(universe.to_bytes(2, byteorder='big'))  # 2 bytes: Universe number (15-bit)
-	header.extend(len(data).to_bytes(2, byteorder='big'))  # 2 bytes: Data length (16-bit)
+	header.extend(universe.to_bytes(2, byteorder='little'))  # 2 bytes Little Endian: Universe number (15-bit)
+	header.extend(len(data).to_bytes(2, byteorder='big'))  # 2 bytes Big Endian: Data length (16-bit)
 
 	
 	# Combine the header and data
@@ -101,6 +108,12 @@ def send_art_dmx_packet(ip_address, universe, data):
 def main():
 	# Parse command-line arguments
 	parse_arguments()
+
+	# Signal the smart home that music is playing
+	if mqtt:
+		mqtt_client = paho.Client()
+		mqtt_client.connect(broker_address, 1883)
+		mqtt_client.publish("state/bedroom/music", "playing", qos=1, retain=True)
  
 	# Initialize PyAudio
 	p = pyaudio.PyAudio()
@@ -120,10 +133,10 @@ def main():
 	# Track the start time for calculating the frame rate
 	start_time = time.time()
 
-	global new_audio_data
  
 	try:
 		while stream.is_active():
+			global new_audio_data
 			if new_audio_data:
 				new_audio_data = False
 
@@ -153,6 +166,11 @@ def main():
 	# Stop and close the audio stream
 	stream.stop_stream()
 	stream.close()
+
+	# Signal the smart home the music is no longer playing
+	if mqtt:
+		mqtt_client.publish("state/bedroom/music", "off", qos=1, retain=True)
+		mqtt_client.disconnect()
 
 	# Terminate PyAudio
 	p.terminate()

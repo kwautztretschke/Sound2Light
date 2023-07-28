@@ -12,13 +12,17 @@ def receive_art_dmx_packet():
 	while True:
 		data, addr = sock.recvfrom(530)  # Receive up to 530 bytes (header + 512 data bytes)
 		
+		for b in range(0, 18):
+			print(f"{data[b]:02X} ", end='')
+		print()
+
 		# Check if the packet starts with "Art-Net" in the header
 		if data[:8] == b'Art-Net\x00':
 			# Extract information from the header
 			opcode = int.from_bytes(data[8:10], byteorder='little')
 			protocol_version = int.from_bytes(data[10:12], byteorder='big')
-			sequence_number = int.from_bytes(data[12:13], byteorder='big')
-			physical_port = int.from_bytes(data[13:14], byteorder='big')
+			sequence_number = int(data[12])
+			physical_port = int(data[13])
 			universe = int.from_bytes(data[14:16], byteorder='big')
 			data_length = int.from_bytes(data[16:18], byteorder='big') 
 
