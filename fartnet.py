@@ -2,6 +2,15 @@ import argparse
 import pyaudio
 import numpy as np
 from progress.bar import Bar
+import matplotlib as mpl
+import matplotlib.style as mplstyle
+mplstyle.use('fast')
+mpl.use('TkAgg')
+mpl.rcParams['toolbar'] = 'None'
+mpl.rcParams['path.simplify'] = True
+mpl.rcParams['path.simplify_threshold'] = 1.0
+mpl.rcParams['agg.path.chunksize'] = 10000
+import matplotlib.pyplot as plt
 import socket
 import time
 import paho.mqtt.client as paho
@@ -20,64 +29,93 @@ max_energy = 2e7  # Set initial value to 20 million (2e7)
 min_energy_cap = 2e7  # Set the minimum cap to 20 million (2e7)
 decay_factor = 0.995  # Decay factor (adjust as needed)
 
+# Global variables to store the audio data
 new_audio_data = False # Flag to show work needs to be done
-normalized_energy = 0 # this is where the loudness of the current chunk is stored
+right_channel = None
+left_channel = None
 
 # List to store Art-Net IP addresses
 fartnet_ips = []
 sequence_number = 0 # sequence number for artnet packets
 
+# more global trash for the plot
+
 # Global flags for commandline arguments
 console = False
 framerate = False
 mqtt = False
+plot = False
 
 # Variable to track the frame count
 global_frame_count = 0
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description="Stream audio loudness to specified Art-Net IP address.")
-	parser.add_argument("-a", "--artnet", metavar="ARTNET_IP_ADDRESS", required=True, action='append',
+	parser.add_argument("-a", "--artnet", metavar="ARTNET_IP_ADDRESS", action='append',
 						help="Art-Net IP address to stream loudness to.")
 	parser.add_argument("-c", "--console", action='store_true', help="Display the progress bar in the console.")
+	parser.add_argument("-p", "--plot", action='store_true', help="Display a plot of the FFT data.")
 	parser.add_argument("-f", "--framerate", action='store_true', help="Display the frequency (frame rate) of the UDP colors being sent out.")
 	parser.add_argument("-m", "--mqtt", action='store_true', help="Send a message over MQTT that music is playing.")
 	args = parser.parse_args()
 
-	global fartnet_ips, console, framerate, mqtt
+	global fartnet_ips, console, framerate, mqtt, plot
 	fartnet_ips = args.artnet
 	console = args.console
 	framerate = args.framerate
 	mqtt = args.mqtt
+	plot = args.plot
 
-def normalize_energy(energy):
-	global max_energy
-
-	# Update the maximum energy and apply the decay factor
-	max_energy = max(energy, max_energy * decay_factor, min_energy_cap)
-
-	# Normalize the energy value to fit within the progress bar range (0 to 255)
-	normalized_energy = int(energy / max_energy * 255)
-
-	return normalized_energy
 
 def audio_stream_callback(in_data, frame_count, time_info, status_flags):
+	global new_audio_data, left_channel, right_channel
 	# Convert the binary audio data to a numpy array of 32-bit floating-point numbers (float32)
-	audio_data = np.frombuffer(in_data, dtype=np.int16).astype(np.float32)
-
-	# Calculate the squared magnitude (energy) of the audio data
-	energy = np.sum(audio_data**2) / len(audio_data)
-
-	# Normalize the energy value to fit within the progress bar range (0 to 255)
-	global normalized_energy
-	normalized_energy = normalize_energy(energy)
-
+	audio_data = np.frombuffer(in_data, dtype=np.int16)
+	left_channel = audio_data[::2]
+	right_channel = audio_data[1::2]
 	# Set the flag to symbolize we need to do work
-	global new_audio_data
 	new_audio_data = True
-
 	# Return None for the output audio data (playback stream is not used)
 	return None, pyaudio.paContinue
+
+
+def analyze_audio_data():
+	# Calculate the squared magnitude (energy) of the audio data, update the maximum energy, and apply the decay factor, then normalize
+	energy_l = np.sum(left_channel**2) / len(left_channel)
+	energy_r = np.sum(right_channel**2) / len(right_channel)
+	global max_energy, min_energy_cap, decay_factor
+	max_energy = max(energy_l, energy_r, max_energy * decay_factor, min_energy_cap)
+	energy_l = int(energy_l / max_energy * 255)
+	energy_r = int(energy_r / max_energy * 255)
+	energy = int((energy_l + energy_r) / 2)
+
+	# do a fourier transform on the audio data, take the absolute value, and only use the first half of the data
+	fft_data_l = np.fft.fft(left_channel)
+	fft_data_l = np.abs(fft_data_l)
+	fft_data_l = fft_data_l[:int(CHUNK_SIZE/2)]
+	fft_data_r = np.fft.fft(right_channel)
+	fft_data_r = np.abs(fft_data_r)
+	fft_data_r = fft_data_r[:int(CHUNK_SIZE/2)]  
+
+	return energy, energy_l, energy_r, fft_data_l, fft_data_r
+
+def console_bar(energy_l, energy_r):
+	bar1 = Bar('Left  :', max=255)
+	bar1.goto(energy_l)
+	bar1.finish()
+	bar2 = Bar('Right :', max=255)
+	bar2.goto(energy_r)
+	bar2.finish()
+    
+def plot_fft(left_channel, right_channel):
+	plt.clf()
+	plt.plot(left_channel)
+	plt.plot(right_channel)
+	plt.ylim(0, 3e6)
+	plt.xlim(0, 128)
+	#plt.axvline()
+	plt.pause(0.001)
+	plt.draw()
 
 def send_art_dmx_packet(ip_address, universe, data):
 	global sequence_number
@@ -140,15 +178,21 @@ def main():
 			if new_audio_data:
 				new_audio_data = False
 
+				# retreive metrics from the audio data
+				energy, energy_l, energy_r, fft_data_l, fft_data_r = analyze_audio_data()
+
 				# Print the energy (loudness) value as a bar graph
 				if console:
-					bar = Bar('Loudness (Energy)', max=255)
-					bar.goto(normalized_energy)
-					bar.finish()
+					console_bar(energy_l, energy_r)
 
+				# Plot the FFT data
+				if plot:
+					plot_fft(fft_data_l, fft_data_r)	
+        
 				# Update the Art-Net devices with the normalized loudness value
-				for ip in fartnet_ips:
-					send_art_dmx_packet(ip, 0, bytearray([normalized_energy]))
+				if fartnet_ips:
+					for ip in fartnet_ips:
+						send_art_dmx_packet(ip, 0, bytearray([energy]))
 
 				# Increment the frame count
 				global global_frame_count
