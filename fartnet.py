@@ -26,13 +26,18 @@ broker_address = "10.69.0.69"
 
 # Persistent variable to track the maximum energy encountered
 max_energy = 2e7  # Set initial value to 20 million (2e7)
+max_energy_fft_l = np.zeros(int(CHUNK_SIZE/2))
+max_energy_fft_r = np.zeros(int(CHUNK_SIZE/2))
 min_energy_cap = 2e7  # Set the minimum cap to 20 million (2e7)
+min_fft_cap = np.ones(int(CHUNK_SIZE/2))*0.25e6  
 decay_factor = 0.995  # Decay factor (adjust as needed)
 
 # Global variables to store the audio data
 new_audio_data = False # Flag to show work needs to be done
-right_channel = None
-left_channel = None
+audio_raw_r = None
+audio_raw_l = None
+fft_raw_l = np.zeros(int(CHUNK_SIZE/2))
+fft_raw_r = np.zeros(int(CHUNK_SIZE/2))
 
 # List to store Art-Net IP addresses
 fartnet_ips = []
@@ -44,7 +49,7 @@ sequence_number = 0 # sequence number for artnet packets
 console = False
 framerate = False
 mqtt = False
-plot = False
+plot = 0
 
 # Variable to track the frame count
 global_frame_count = 0
@@ -54,7 +59,7 @@ def parse_arguments():
 	parser.add_argument("-a", "--artnet", metavar="ARTNET_IP_ADDRESS", action='append',
 						help="Art-Net IP address to stream loudness to.")
 	parser.add_argument("-c", "--console", action='store_true', help="Display the progress bar in the console.")
-	parser.add_argument("-p", "--plot", action='store_true', help="Display a plot of the FFT data.")
+	parser.add_argument("-p", "--plot", type=int, help="Display a plot of the FFT data.")
 	parser.add_argument("-f", "--framerate", action='store_true', help="Display the frequency (frame rate) of the UDP colors being sent out.")
 	parser.add_argument("-m", "--mqtt", action='store_true', help="Send a message over MQTT that music is playing.")
 	args = parser.parse_args()
@@ -68,11 +73,11 @@ def parse_arguments():
 
 
 def audio_stream_callback(in_data, frame_count, time_info, status_flags):
-	global new_audio_data, left_channel, right_channel
+	global new_audio_data, audio_raw_l, audio_raw_r
 	# Convert the binary audio data to a numpy array of 32-bit floating-point numbers (float32)
 	audio_data = np.frombuffer(in_data, dtype=np.int16)
-	left_channel = audio_data[::2]
-	right_channel = audio_data[1::2]
+	audio_raw_l = audio_data[::2]
+	audio_raw_r = audio_data[1::2]
 	# Set the flag to symbolize we need to do work
 	new_audio_data = True
 	# Return None for the output audio data (playback stream is not used)
@@ -81,8 +86,8 @@ def audio_stream_callback(in_data, frame_count, time_info, status_flags):
 
 def analyze_audio_data():
 	# Calculate the squared magnitude (energy) of the audio data, update the maximum energy, and apply the decay factor, then normalize
-	energy_l = np.sum(left_channel**2) / len(left_channel)
-	energy_r = np.sum(right_channel**2) / len(right_channel)
+	energy_l = np.sum(audio_raw_l.astype(np.float32)**2) / len(audio_raw_l)
+	energy_r = np.sum(audio_raw_r.astype(np.float32)**2) / len(audio_raw_r)
 	global max_energy, min_energy_cap, decay_factor
 	max_energy = max(energy_l, energy_r, max_energy * decay_factor, min_energy_cap)
 	energy_l = int(energy_l / max_energy * 255)
@@ -90,12 +95,23 @@ def analyze_audio_data():
 	energy = int((energy_l + energy_r) / 2)
 
 	# do a fourier transform on the audio data, take the absolute value, and only use the first half of the data
-	fft_data_l = np.fft.fft(left_channel)
-	fft_data_l = np.abs(fft_data_l)
-	fft_data_l = fft_data_l[:int(CHUNK_SIZE/2)]
-	fft_data_r = np.fft.fft(right_channel)
-	fft_data_r = np.abs(fft_data_r)
-	fft_data_r = fft_data_r[:int(CHUNK_SIZE/2)]  
+	global fft_raw_l, fft_raw_r
+	fft_raw_l = np.fft.fft(audio_raw_l)
+	fft_raw_l = np.abs(fft_raw_l)
+	fft_raw_l = fft_raw_l[:int(CHUNK_SIZE/2)]
+	fft_raw_r = np.fft.fft(audio_raw_r)
+	fft_raw_r = np.abs(fft_raw_r)
+	fft_raw_r = fft_raw_r[:int(CHUNK_SIZE/2)]
+	# update the maximum energy for each bucket, apply the decay factor, and normalize
+	global max_energy_fft_l, max_energy_fft_r, min_fft_cap
+	max_energy_fft_l = np.maximum(fft_raw_l, max_energy_fft_l * decay_factor)
+	max_energy_fft_r = np.maximum(fft_raw_r, max_energy_fft_r * decay_factor)
+	# make sure the max_energy doesn't go below the minimum cap
+	max_energy_fft_l = np.maximum(max_energy_fft_l, min_fft_cap)
+	max_energy_fft_r = np.maximum(max_energy_fft_r, min_fft_cap)
+
+	fft_data_l = fft_raw_l / max_energy_fft_l * 255
+	fft_data_r = fft_raw_r / max_energy_fft_r * 255
 
 	return energy, energy_l, energy_r, fft_data_l, fft_data_r
 
@@ -106,14 +122,42 @@ def console_bar(energy_l, energy_r):
 	bar2 = Bar('Right :', max=255)
 	bar2.goto(energy_r)
 	bar2.finish()
+
+def console_fft(fft_data):
+	# clear console
+	print("\033c", end='')
+	for h in range(0,16):
+		print(f"{255-h*16:3d} | ", end='')
+		for w in range(0, len(fft_data)):
+			if fft_data[w] > (255-h*16):
+				print("#", end='')
+			else:
+				print(" ", end='')
+		print()
+	# flush the output buffer
+	print("\r", end='')
     
-def plot_fft(left_channel, right_channel):
+def plot_fft(fft_data_l, fft_data_r):
 	plt.clf()
-	plt.plot(left_channel)
-	plt.plot(right_channel)
-	plt.ylim(0, 3e6)
-	plt.xlim(0, 128)
-	#plt.axvline()
+	global fft_raw_l, max_energy_fft_l, plot
+	if plot == 1:
+		# plot the raw fft data and the maximum in the same diagram
+		plt.plot(fft_raw_l, color='blue')
+		plt.plot(max_energy_fft_l, color='red')
+		plt.ylim(0, 2e6)	
+	elif plot == 2:
+		# plot the normalized fft data
+		plt.plot(fft_data_l, color='blue')
+		plt.ylim(0, 255)
+	elif plot == 3:
+		# plot the raw fft data and the maximum
+		plt.subplot(2,1,1)
+		plt.plot(fft_raw_l, color='blue')
+		plt.plot(max_energy_fft_l, color='red')
+		plt.ylim(0, 2e6)
+		# add the normalized fft data in a second diagram below the first one
+		plt.subplot(2,1,2)	
+		plt.plot(fft_data_l, color='blue')
 	plt.pause(0.001)
 	plt.draw()
 
@@ -142,6 +186,34 @@ def send_art_dmx_packet(ip_address, universe, data):
 	sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	sock.sendto(art_dmx_packet, (ip_address, 6454))
 	sock.close()
+
+def compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r):
+	# create a 512 byte bytearray, fill it with zeroes, then populate it with audio data
+	datagram = bytearray(512)
+	# the first 128 bytes are mono audio data and general information
+	datagram[0] = energy
+	#todo: low middle and high metrics
+	# the next 128 bytes are stereo audio data
+	datagram[128] = energy_l
+	datagram[129] = energy_r
+	#todo: low middle and high metrics (stereo)
+
+	# the next 256 bytes are fft data, but filtered semi logarithmically by frequency
+	fft_data = (fft_data_l/2 + fft_data_r/2)
+	# the first 128 bytes are just copied from the fft data
+	datagram[256:384] = fft_data[:128].tobytes()
+	# the next 64 bytes are two buckets of fft data each
+	reshaped_half = np.reshape(fft_data[128:256], (2,64))
+	averages = np.mean(reshaped_half, axis=1)
+	datagram[384:448] = averages.tobytes()
+	# the last 64 bytes are four buckets of fft data each
+	reshaped_quarter = np.reshape(fft_data[256:512], (4,64))
+	averages = np.mean(reshaped_quarter, axis=1)
+	datagram[448:512] = averages.tobytes()
+	
+	return datagram
+	
+	
 
 def main():
 	# Parse command-line arguments
@@ -183,7 +255,8 @@ def main():
 
 				# Print the energy (loudness) value as a bar graph
 				if console:
-					console_bar(energy_l, energy_r)
+					#console_bar(energy_l, energy_r)
+					console_fft(fft_data_l[:160])
 
 				# Plot the FFT data
 				if plot:
@@ -191,8 +264,9 @@ def main():
         
 				# Update the Art-Net devices with the normalized loudness value
 				if fartnet_ips:
+					datagram = compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r)
 					for ip in fartnet_ips:
-						send_art_dmx_packet(ip, 0, bytearray([energy]))
+						send_art_dmx_packet(ip, 0, datagram)
 
 				# Increment the frame count
 				global global_frame_count
