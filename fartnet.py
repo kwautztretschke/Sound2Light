@@ -137,7 +137,7 @@ def console_fft(fft_data):
 	# flush the output buffer
 	print("\r", end='')
     
-def plot_fft(fft_data_l, fft_data_r):
+def plot_fft(fft_data_l, fft_data_r, datagram):
 	plt.clf()
 	global fft_raw_l, max_energy_fft_l, plot
 	if plot == 1:
@@ -158,6 +158,9 @@ def plot_fft(fft_data_l, fft_data_r):
 		# add the normalized fft data in a second diagram below the first one
 		plt.subplot(2,1,2)	
 		plt.plot(fft_data_l, color='blue')
+	elif plot == 4:
+		plt.plot(datagram)
+		plt.ylim(0, 255)
 	plt.pause(0.001)
 	plt.draw()
 
@@ -201,15 +204,15 @@ def compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r):
 	# the next 256 bytes are fft data, but filtered semi logarithmically by frequency
 	fft_data = (fft_data_l/2 + fft_data_r/2)
 	# the first 128 bytes are just copied from the fft data
-	datagram[256:384] = fft_data[:128].tobytes()
+	datagram[256:384] = fft_data[:128].astype(np.uint8).tobytes()
 	# the next 64 bytes are two buckets of fft data each
-	reshaped_half = np.reshape(fft_data[128:256], (2,64))
+	reshaped_half = np.reshape(fft_data[128:256], (-1, 2))
 	averages = np.mean(reshaped_half, axis=1)
-	datagram[384:448] = averages.tobytes()
+	datagram[384:448] = averages.astype(np.uint8).tobytes()
 	# the last 64 bytes are four buckets of fft data each
-	reshaped_quarter = np.reshape(fft_data[256:512], (4,64))
+	reshaped_quarter = np.reshape(fft_data[256:512], (-1, 4))
 	averages = np.mean(reshaped_quarter, axis=1)
-	datagram[448:512] = averages.tobytes()
+	datagram[448:512] = averages.astype(np.uint8).tobytes()
 	
 	return datagram
 	
@@ -260,7 +263,8 @@ def main():
 
 				# Plot the FFT data
 				if plot:
-					plot_fft(fft_data_l, fft_data_r)	
+					datagram = compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r)
+					plot_fft(fft_data_l, fft_data_r, datagram)	
         
 				# Update the Art-Net devices with the normalized loudness value
 				if fartnet_ips:
