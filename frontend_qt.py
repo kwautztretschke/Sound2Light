@@ -2,22 +2,30 @@ import sys
 from functools import partial
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QGridLayout
 
+from controls_groupbox import ButtonGridGroupBox
+
 class MainWindow(QWidget):
 	def __init__(self):
 		super().__init__()
 
+		# ==================== Layouting the Main Window ====================
 		# divide the main window into a top bar containing presets, and the bottom part containing the actual controls
 		main_layout = QVBoxLayout()
+		self.setLayout(main_layout)
+
 		presets_groupbox = QGroupBox("Presets")
 		presets_groupbox.setFixedHeight(100)
-		main_layout.addWidget(presets_groupbox)
-		controls_groupbox = QGroupBox("Controls")
-		main_layout.addWidget(controls_groupbox)
-
-		# presets bar (top)
 		presets_grid = QGridLayout()
 		presets_groupbox.setLayout(presets_grid)
+		main_layout.addWidget(presets_groupbox)
 
+		controls_groupbox = QGroupBox("Controls")
+		self.controls_layout = QHBoxLayout() # this layout will be filled with ButtonGridGroupBox instances
+		controls_groupbox.setLayout(self.controls_layout)
+		main_layout.addWidget(controls_groupbox)
+		# ====================================================================
+
+		# populating the presets grid with buttons
 		preset_buttons = []
 		for i in range(9):
 			button = QPushButton(f"Preset {i+1}")
@@ -25,29 +33,6 @@ class MainWindow(QWidget):
 			preset_buttons.append(button)
 			presets_grid.addWidget(button, 0, i)
 			button.clicked.connect(partial(handle_preset_button_click, i+1))
-
-		# controls (bottom)
-		controls_layout = QHBoxLayout()
-		controls_groupbox.setLayout(controls_layout)
-
-		# create three group boxes
-		reactor_group_boxes = []
-		for i in range(3):
-			group_box = QGroupBox(f"Group {i+1}")
-			reactor_group_boxes.append(group_box)
-			controls_layout.addWidget(group_box)
-
-			# create a 4x4 grid of push buttons for each group box
-			grid = QGridLayout()
-			group_box.setLayout(grid)
-			for row in range(4):
-				for col in range(4):
-					button = QPushButton(f"{row+1},{col+1}")
-					button.setFixedSize(80, 80) # set fixed size
-					grid.addWidget(button, row, col)
-
-		# Set the main layout for the window
-		self.setLayout(main_layout)
 
 	def keyPressEvent(self, event):
 		# Check if the pressed key is a number between 1 and 9
@@ -57,7 +42,14 @@ class MainWindow(QWidget):
 		else:
 			# Print the key that was pressed to the console
 			print("Keypress: " + event.text())
+			# create a new ButtonGridGroupBox with the key as the title
+			group_box = ButtonGridGroupBox(f"Group {event.text()}")
+			self.controls_layout.addWidget(group_box)
 
+	def closeEvent(self, event):
+			# destroy all the ButtonGridGroupBox instances
+			for group_box in self.reactor_group_boxes:
+				group_box.destroy_self()
 
 def handle_preset_button_click(n):
 	print(f"Preset {n} clicked")
