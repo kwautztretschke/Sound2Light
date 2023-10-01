@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QGroupBox, QPushButton, QGridLayout, QHBoxLayout, QComboBox, QVBoxLayout, QSizePolicy
+import typing
+from PyQt5 import QtCore
+from PyQt5.QtWidgets import QGroupBox, QPushButton, QGridLayout, QHBoxLayout, QComboBox, QVBoxLayout, QSizePolicy, QFrame, QWidget
 
 class ButtonGridGroupBox(QGroupBox):
 	def __init__(self, title):
@@ -29,6 +31,10 @@ class ButtonGridGroupBox(QGroupBox):
 				button.setFixedSize(80, 80) 
 				button_grid_layout.addWidget(button, row, col)
 
-
 	def destroy_self(self):
 		self.setParent(None)
+
+
+class MqttActionField(QFrame):
+	def __init__(self):
+		super().__init__()

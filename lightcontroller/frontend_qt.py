@@ -42,9 +42,6 @@ class MainWindow(QWidget):
 		else:
 			# Print the key that was pressed to the console
 			print("Keypress: " + event.text())
-			# create a new ButtonGridGroupBox with the key as the title
-			group_box = ButtonGridGroupBox(f"Group {event.text()}")
-			self.controls_layout.addWidget(group_box)
 
 	def closeEvent(self, event):
 			# destroy all the ButtonGridGroupBox instances
