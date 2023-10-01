@@ -34,7 +34,7 @@ class MainWindow(QWidget):
 		self.setLayout(main_layout)
 
 		presets_groupbox = QGroupBox("Presets")
-		presets_groupbox.setFixedHeight(100)
+		presets_groupbox.setFixedHeight(200)
 		presets_grid = QGridLayout()
 		presets_groupbox.setLayout(presets_grid)
 		main_layout.addWidget(presets_groupbox)
@@ -48,17 +48,30 @@ class MainWindow(QWidget):
 		# populating the presets grid with buttons
 		self.preset_buttons = []
 		for i in range(9):
-			button = QPushButton(f"Preset {i+1}")
+			button = QPushButton(f"Preset {i}")
 			button.setFixedSize(100, 50) # set fixed size
 			self.preset_buttons.append(button)
 			presets_grid.addWidget(button, 0, i)
-			button.clicked.connect(partial(handle_preset_button_click, i+1))
+			button.clicked.connect(partial(handle_preset_button_click, i))
+
+		self.variation_buttons = []
+		self.variation_buttons_LUT = {"q": 0, "w": 1, "e": 2, "r": 3, "t": 4, "z": 5, "u": 6, "i": 7, "o": 8}
+		for i in range(9):
+			button = QPushButton(f"Variation {i}")
+			button.setFixedSize(100, 50)
+			self.variation_buttons.append(button)
+			presets_grid.addWidget(button, 1, i)
+			button.clicked.connect(partial(handle_variation_button_click, i))
 
 	def keyPressEvent(self, event):
 		# Check if the pressed key is a number between 1 and 9
 		if event.text().isdigit() and 1 <= int(event.text()) <= 9:
 			# call the animateClick method of the button with the same number
 			self.preset_buttons[int(event.text())-1].animateClick()
+		# Check if the pressed key is a letter between q and o
+		elif event.text() in self.variation_buttons_LUT:
+			# call the animateClick method of the button with the same letter
+			self.variation_buttons[self.variation_buttons_LUT[event.text()]].animateClick()
 		else:
 			# Print the key that was pressed to the console
 			print("Keypress: " + event.text())
@@ -66,6 +79,10 @@ class MainWindow(QWidget):
 def handle_preset_button_click(n):
 	print(f"Preset {n} clicked")
 	mqtt.send_message("preset", str(n))
+
+def handle_variation_button_click(n):
+	print(f"Variation {n} clicked")
+	mqtt.send_message("variation", str(n))
 
 
 
