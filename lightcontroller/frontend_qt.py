@@ -1,8 +1,28 @@
 import sys
 from functools import partial
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QGridLayout
+from paho.mqtt import client as mqtt_client
 
 from controls_groupbox import ButtonGridGroupBox
+
+mqtt_broker = '10.69.0.69'
+mqtt_port = 1883
+
+class mqtt_actor:
+	def __init__(self):
+		self.client = mqtt_client.Client("lightcontroller_frontend")
+		# self.client.on_message = self.on_message
+		try:
+			self.client.connect(mqtt_broker, mqtt_port)
+			print("Connected to MQTT Broker")
+			self.client.loop_start()
+		except:
+			print("Could not connect to MQTT Broker")
+	
+	def send_message(self, topic, message):
+		self.client.publish("actor/lightcontroller/" + topic, message)
+
+mqtt = mqtt_actor()
 
 class MainWindow(QWidget):
 	def __init__(self):
@@ -26,30 +46,27 @@ class MainWindow(QWidget):
 		# ====================================================================
 
 		# populating the presets grid with buttons
-		preset_buttons = []
+		self.preset_buttons = []
 		for i in range(9):
 			button = QPushButton(f"Preset {i+1}")
 			button.setFixedSize(100, 50) # set fixed size
-			preset_buttons.append(button)
+			self.preset_buttons.append(button)
 			presets_grid.addWidget(button, 0, i)
 			button.clicked.connect(partial(handle_preset_button_click, i+1))
 
 	def keyPressEvent(self, event):
 		# Check if the pressed key is a number between 1 and 9
 		if event.text().isdigit() and 1 <= int(event.text()) <= 9:
-			# Call the handle_preset_button_click function with the corresponding number as argument
-			handle_preset_button_click(int(event.text()))
+			# call the animateClick method of the button with the same number
+			self.preset_buttons[int(event.text())-1].animateClick()
 		else:
 			# Print the key that was pressed to the console
 			print("Keypress: " + event.text())
 
-	def closeEvent(self, event):
-			# destroy all the ButtonGridGroupBox instances
-			for group_box in self.reactor_group_boxes:
-				group_box.destroy_self()
-
 def handle_preset_button_click(n):
 	print(f"Preset {n} clicked")
+	mqtt.send_message("preset", str(n))
+
 
 
 if __name__ == '__main__':
