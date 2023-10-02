@@ -16,10 +16,22 @@ class MainWindow(QWidget):
 		self.setLayout(main_layout)
 
 		presets_groupbox = QGroupBox("Presets")
-		presets_groupbox.setFixedHeight(200)
+		presets_groupbox.setFixedHeight(100)
 		presets_grid = QGridLayout()
 		presets_groupbox.setLayout(presets_grid)
 		main_layout.addWidget(presets_groupbox)
+
+		variations_groupbox = QGroupBox("Variations")
+		variations_groupbox.setFixedHeight(100)
+		variations_grid = QGridLayout()
+		variations_groupbox.setLayout(variations_grid)
+		main_layout.addWidget(variations_groupbox)
+
+		palettes_groupbox = QGroupBox("Palettes")
+		palettes_groupbox.setFixedHeight(100)
+		palettes_grid = QGridLayout()
+		palettes_groupbox.setLayout(palettes_grid)
+		main_layout.addWidget(palettes_groupbox)
 
 		controls_groupbox = QGroupBox("Controls")
 		self.controls_layout = QHBoxLayout() # this layout will be filled with ButtonGridGroupBox instances
@@ -42,8 +54,16 @@ class MainWindow(QWidget):
 			button = QPushButton(f"Variation {i}")
 			button.setFixedSize(100, 50)
 			self.variation_buttons.append(button)
-			presets_grid.addWidget(button, 1, i)
+			variations_grid.addWidget(button, 1, i)
 			button.clicked.connect(partial(handle_variation_button_click, i))
+
+		self.palette_buttons = []
+		for i in range(5):
+			button = QPushButton(f"Palette {i}")
+			button.setFixedSize(100, 50)
+			self.palette_buttons.append(button)
+			palettes_grid.addWidget(button, 2, i)
+			button.clicked.connect(partial(handle_palette_button_click, i))
 
 	def keyPressEvent(self, event):
 		# Check if the pressed key is a number between 1 and 9
@@ -71,6 +91,13 @@ def handle_variation_button_click(n):
 		mqtt.apply_variation(n)
 	except:
 		print("Could not apply variation")
+
+def handle_palette_button_click(n):
+	print(f"Palette {n} clicked")
+	try:
+		mqtt.apply_palette(n)
+	except:
+		print("Could not apply palette")
 
 
 

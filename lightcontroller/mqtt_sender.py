@@ -29,6 +29,22 @@ class mqtt_sender:
 		for reactor in self.current_preset:
 			self.send_command_list(self.current_preset[reactor]["variations"][index], reactor)
 
+	def apply_palette(self, index):
+		for reactor in self.reactors:
+			for i, color in enumerate(self.palettes[int(index)]):
+				self.client.publish("reactor/" + reactor + "/color/" + str(i), color) 
+  
+	reactors = [
+		"MagnatBoxen",
+		"RatDerGeleerten",
+		"tollerESP"
+	]
+
+	palettes = [
+		[ # palette 1, the entire hue spectrum divided equally into 8 colors
+			"FF0000", "FFBF00", "80FF00", "00FF40", "00FFFF", "0040FF", "8000FF", "FF00BF"
+		]
+	]
 	presets = {
 		0: {
 			"MagnatBoxen": {
