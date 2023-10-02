@@ -20,13 +20,22 @@ class mqtt_sender:
  
 	current_preset = {} 
 	def apply_preset(self, index):
-		self.current_preset = self.presets[index]
-		for reactor in self.current_preset:
-			self.send_command_list(self.current_preset[reactor]["preset"], reactor)
+		try:
+			self.current_preset = self.presets[index]
+			for reactor in self.current_preset:
+				try:
+					self.send_command_list(self.current_preset[reactor]["preset"], reactor)
+				except: 
+					print("Could not apply preset" + str(index) + " to " + reactor)
+		except:
+			print("Could not apply preset " + str(index))
 
 	def apply_variation(self, index):
 		for reactor in self.current_preset:
-			self.send_command_list(self.current_preset[reactor]["variations"][index], reactor)
+			try:
+				self.send_command_list(self.current_preset[reactor]["variations"][index], reactor)
+			except:
+				print("Could not apply variation " + str(index) + " to " + reactor)
 
 	def apply_palette(self, index):
 		for reactor in self.reactors:

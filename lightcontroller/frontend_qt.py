@@ -65,6 +65,12 @@ class MainWindow(QWidget):
 			palettes_grid.addWidget(button, 2, i)
 			button.clicked.connect(partial(handle_palette_button_click, i))
 
+		self.control_groupboxes = []
+		for i in range(4):
+			groupbox = ButtonGridGroupBox(f"Controls {i}")
+			self.controls_layout.addWidget(groupbox)
+			self.control_groupboxes.append(groupbox)
+
 	def keyPressEvent(self, event):
 		# Check if the pressed key is a number between 1 and 9
 		if event.text().isdigit() and 1 <= int(event.text()) <= 9:
@@ -80,24 +86,15 @@ class MainWindow(QWidget):
 
 def handle_preset_button_click(n):
 	print(f"Preset {n} clicked")
-	try:
-		mqtt.apply_preset(n)
-	except:
-		print("Could not apply preset")
+	mqtt.apply_preset(n)
 
 def handle_variation_button_click(n):
 	print(f"Variation {n} clicked")
-	try:
-		mqtt.apply_variation(n)
-	except:
-		print("Could not apply variation")
+	mqtt.apply_variation(n)
 
 def handle_palette_button_click(n):
 	print(f"Palette {n} clicked")
-	try:
-		mqtt.apply_palette(n)
-	except:
-		print("Could not apply palette")
+	mqtt.apply_palette(n)
 
 
 
