@@ -1,28 +1,10 @@
 import sys
 from functools import partial
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QGridLayout
-from paho.mqtt import client as mqtt_client
+from mqtt_sender import mqtt
 
 from controls_groupbox import ButtonGridGroupBox
 
-mqtt_broker = '10.69.0.69'
-mqtt_port = 1883
-
-class mqtt_actor:
-	def __init__(self):
-		self.client = mqtt_client.Client("lightcontroller_frontend")
-		# self.client.on_message = self.on_message
-		try:
-			self.client.connect(mqtt_broker, mqtt_port)
-			print("Connected to MQTT Broker")
-			self.client.loop_start()
-		except:
-			print("Could not connect to MQTT Broker")
-	
-	def send_message(self, topic, message):
-		self.client.publish("actor/lightcontroller/" + topic, message)
-
-mqtt = mqtt_actor()
 
 class MainWindow(QWidget):
 	def __init__(self):
@@ -78,11 +60,17 @@ class MainWindow(QWidget):
 
 def handle_preset_button_click(n):
 	print(f"Preset {n} clicked")
-	mqtt.send_message("preset", str(n))
+	try:
+		mqtt.apply_preset(n)
+	except:
+		print("Could not apply preset")
 
 def handle_variation_button_click(n):
 	print(f"Variation {n} clicked")
-	mqtt.send_message("variation", str(n))
+	try:
+		mqtt.apply_variation(n)
+	except:
+		print("Could not apply variation")
 
 
 
