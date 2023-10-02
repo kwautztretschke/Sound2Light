@@ -116,9 +116,9 @@ class mqtt_sender:
 		1: { # combination of barsync, and simple. Good for anything. Very stereo
 			"MagnatBoxen": {
 				"preset": [
-					("focus", "simpleStereoSync"),
-					("input/channel/L", "128"),
-					("input/channel/R", "129"),
+					("focus", "barFadeStereoSync"),
+					("input/channel/L", "129"),
+					("input/channel/R", "128"),
 	 				("input/smooth/L", "3"),
 	 				("input/smooth/R", "3"),
 					("input/colorindex", "0"),
@@ -134,8 +134,8 @@ class mqtt_sender:
 			"middle": {
 				"preset": [
 					("focus", "barFadeStereoSync"),
-					("input/channel/L", "128"),
-					("input/channel/R", "129"),
+					("input/channel/L", "129"),
+					("input/channel/R", "128"),
 	 				("input/smooth/L", "3"),
 	 				("input/smooth/R", "3"),
 					("input/mode", "IN"),
