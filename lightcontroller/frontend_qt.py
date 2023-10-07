@@ -1,12 +1,12 @@
 import sys
 from functools import partial
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QGridLayout
-from mqtt_sender import mqtt
 
-from controls_groupbox import ButtonGridGroupBox
+from lightcontroller.mqtt_sender import mqtt
+from lightcontroller.controls_groupbox import ButtonGridGroupBox
 
 
-class MainWindow(QWidget):
+class LightController(QWidget):
 	def __init__(self):
 		super().__init__()
 
@@ -26,6 +26,12 @@ class MainWindow(QWidget):
 		variations_grid = QGridLayout()
 		variations_groupbox.setLayout(variations_grid)
 		main_layout.addWidget(variations_groupbox)
+
+		hotbuttons_groupbox = QGroupBox("Hotbuttons")
+		hotbuttons_groupbox.setFixedHeight(100)
+		hotbuttons_grid = QGridLayout()
+		hotbuttons_groupbox.setLayout(hotbuttons_grid)
+		main_layout.addWidget(hotbuttons_groupbox)
 
 		palettes_groupbox = QGroupBox("Palettes")
 		palettes_groupbox.setFixedHeight(100)
@@ -56,6 +62,14 @@ class MainWindow(QWidget):
 			self.variation_buttons.append(button)
 			variations_grid.addWidget(button, 1, i)
 			button.clicked.connect(partial(handle_variation_button_click, i))
+
+		self.hotbuttons = []
+		for i in range(8):
+			button = QPushButton(f"Hotbutton {i}")
+			button.setFixedSize(100, 50)
+			self.hotbuttons.append(button)
+			hotbuttons_grid.addWidget(button, 2, i)
+			button.clicked.connect(partial(handle_hotbutton_click, i))
 
 		self.palette_buttons = []
 		for i in range(5):
@@ -92,6 +106,10 @@ def handle_variation_button_click(n):
 	print(f"Variation {n} clicked")
 	mqtt.apply_variation(n)
 
+def handle_hotbutton_click(n):
+	print(f"Hotbutton {n} clicked")
+	mqtt.apply_hotbutton(n)
+
 def handle_palette_button_click(n):
 	print(f"Palette {n} clicked")
 	mqtt.apply_palette(n)
@@ -100,6 +118,6 @@ def handle_palette_button_click(n):
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
-	window = MainWindow()
+	window = LightController()
 	window.show()
 	sys.exit(app.exec_())

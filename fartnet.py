@@ -77,6 +77,7 @@ class fartnet:
 
 		# Terminate PyAudio
 		self.p.terminate()
+		print("Fartnet closed gracefully")
 
 	def analyze_audio_data(self):
 		# Calculate the squared magnitude (energy) of the audio data, update the maximum energy, and apply the decay factor, then normalize
