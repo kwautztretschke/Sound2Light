@@ -29,6 +29,7 @@ class fartnet:
 	MIN_ENERGY_CAP = 2e7  # Set the minimum cap to 20 million (2e7)
 	MIN_FFT_CAP = np.ones(int(CHUNK_SIZE/2))*0.25e6  
 	DECAY_FACTOR = 0.995  # Decay factor (adjust as needed)
+	MAX_HOTBUTTONS = 16
  
 	def __init__(self, artnet_ips, input_device_index=None):
 		# set member variables from constructor arguments
@@ -39,6 +40,7 @@ class fartnet:
 		self.max_energy = 2e7 # Set initial value to 20 million (2e7)
 		self.max_energy_fft_l = np.zeros(int(fartnet.CHUNK_SIZE/2))
 		self.max_energy_fft_r = np.zeros(int(fartnet.CHUNK_SIZE/2))
+		self.hotbutton_states = [0] * fartnet.MAX_HOTBUTTONS	
  
 		# Initialize PyAudio
 		self.p = pyaudio.PyAudio()
@@ -65,7 +67,12 @@ class fartnet:
 		energy, energy_l, energy_r, fft_data_l, fft_data_r = self.analyze_audio_data()
 
 		# Update the Art-Net devices with the normalized loudness value
-		self.artnet_sender.send_packets(energy, energy_l, energy_r, fft_data_l, fft_data_r)
+		self.artnet_sender.send_packets(energy, energy_l, energy_r, fft_data_l, fft_data_r, self.hotbutton_states)
+
+	def update_hotbuttons(self, new_states):
+		sliced_states = new_states[:fartnet.MAX_HOTBUTTONS]
+		self.hotbutton_states[:len(sliced_states)] = sliced_states
+
 
 	def close(self):
 		# Close the Art-Net sender
@@ -119,11 +126,11 @@ class artnet_sender:
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self.datagram = bytearray(512)
 
-	def send_packets(self, energy, energy_l, energy_r, fft_data_l, fft_data_r):
+	def send_packets(self, energy, energy_l, energy_r, fft_data_l, fft_data_r, hotbutton_states):
 		self.sequence_number = (self.sequence_number + 1) & 0xFF  # Increment and wrap around to 16-bit value
 
 		# Ensure the data length is not greater than 512 bytes
-		data = self.compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r)
+		data = self.compose_dmx_frame(energy, energy_l, energy_r, fft_data_l, fft_data_r, hotbutton_states)
 		# Create the header
 		header = bytearray()
 		header.extend(b'Art-Net\x00')  # 8 bytes String: Protocol ID (fixed string with null terminator)
@@ -139,18 +146,22 @@ class artnet_sender:
 		for ip in self.artnet_ips:
 			self.sock.sendto(art_dmx_packet, (ip, 6454))
 
-	def compose_dmx_frame(self, energy, energy_l, energy_r, fft_data_l, fft_data_r):
+	def compose_dmx_frame(self, energy, energy_l, energy_r, fft_data_l, fft_data_r, hotbutton_states): #TODO maybe have less parameters
 		# create a 512 byte bytearray, fill it with zeroes, then populate it with audio data
 		datagram = bytearray(512)
-		# the first 128 bytes are mono audio data and general information
+		# ================================= Mono Audio and General Stuff [0:127] =================================
 		datagram[0] = energy
 		#todo: low middle and high metrics
-		# the next 128 bytes are stereo audio data
+
+		datagram[64:(64+fartnet.MAX_HOTBUTTONS)] = hotbutton_states
+
+		# ================================= Stereo Audio [128:255] =================================
 		datagram[128] = energy_l
 		datagram[129] = energy_r
 		#todo: low middle and high metrics (stereo)
 
-		# the next 256 bytes are fft data, but filtered semi logarithmically by frequency
+		# ================================= FFT data [256:511] =================================
+		# the upper 256 bytes are fft data, but filtered semi logarithmically by frequency
 		fft_data = (fft_data_l/2 + fft_data_r/2)
 		# the first 128 bytes are just copied from the fft data
 		datagram[256:384] = fft_data[:128].astype(np.uint8).tobytes()

@@ -26,6 +26,11 @@ def print_bar(name, value):
 	bar.goto(value)
 	bar.finish()
 
+def print_hotbuttons(data):
+	print("Hotbuttons: |", end='')
+	print(" ".join("{:>3d}".format(x) for x in data), end='')
+	print("|")
+
 def print_spectrum(data):
 	for h in range(0,5):
 		print(f"{255-h*51:3d} |", end='')
@@ -41,6 +46,7 @@ def print_data(data):
 	print("Mono audio data and general information:")
 	#print_spectrum(data[0:128])
 	print_bar("Mono Energy", data[0])
+	print_hotbuttons(data[64:80])
 	# Next 128 bytes are stereo data
 	print("\nStereo audio data:")
 	#print_spectrum(data[128:256])
