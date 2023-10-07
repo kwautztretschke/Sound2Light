@@ -1,4 +1,5 @@
 import sys
+import argparse
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from fartnet import fartnet
@@ -44,9 +45,23 @@ def handle_palette_button_click(n):
 	mqtt.apply_palette(n)
 
 
+def parse_arguments():
+	parser = argparse.ArgumentParser(description="Stream audio loudness to specified Art-Net IP address.")
+	parser.add_argument("-a", "--artnet", metavar="ARTNET_IP_ADDRESS", action='append', required=True,
+						help="Art-Net IP address to stream loudness to.")
+	parser.add_argument("-m", "--mqtt", action='store_true', help="Send a message over MQTT that music is playing.")
+	args = parser.parse_args()
+
+	return args.artnet, args.mqtt
+
+
 if __name__ == "__main__":
-	# ==================== Initialize the Fartnet ====================
-	fartnet = fartnet(["127.0.0.1"])
+	# ==================== Parse command line arguments ====================
+	artnet_ips, send_mqtt_state = parse_arguments()
+	# TODO add some check or whatever
+
+	# ==================== Initialize Fartnet ====================
+	fartnet = fartnet(artnet_ips)
 	fartnet_thread = FartnetThread(fartnet)
 	fartnet_thread.start()
 
@@ -57,6 +72,7 @@ if __name__ == "__main__":
 	main_window.setCentralWidget(lightcontroller)
 	main_window.show()
 
+	# ==================== Connect some Signals and Slots ====================
 	lightcontroller.preset_panel.clicked.connect(handle_preset_button_click)
 	lightcontroller.variation_panel.clicked.connect(handle_variation_button_click)
 	lightcontroller.hotbutton_panel.updated.connect(fartnet_thread.update_hotbuttons)
