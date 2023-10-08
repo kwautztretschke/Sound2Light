@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QGroupBox, QGridLayout
 
-from lightcontroller.controls_groupbox import ButtonGridGroupBox
-from lightcontroller.button_bars import PresetPanel, VariationPanel, HotbuttonPanel, PalettePanel
+from .controls_groupbox import ButtonGridGroupBox
+from .button_bars import PresetPanel, VariationPanel, HotbuttonPanel, PalettePanel
 
 
 class LightController(QWidget):
