@@ -1,5 +1,6 @@
 reactors = [
-	"zylinder"
+	"zylinder",
+	"zylinder_leo"
 ]
 
 palettes = [
@@ -22,11 +23,25 @@ presets = {
 				3: [("input/colorindex", "6")],
 			},
 		},
+		"zylinder_leo": {
+			"preset": [
+				("focus", "simpleSync"),
+				("input/channel", "256"),
+				("input/smooth", "5"),
+			],
+			"variations": {
+				0: [("input/colorindex", "3")],
+				1: [("input/colorindex", "5")],
+				2: [("input/colorindex", "7")],
+				3: [("input/colorindex", "1")],
+			},
+		},
 	},
 	1: { # barFadeStereoSync
 		"zylinder": {
 			"preset": [
 				("focus", "barSync"),
+				("input/channel", "128"),
 				("input/smooth", "0"),
 			],
 			"variations": {
@@ -39,12 +54,28 @@ presets = {
 				6: [("input/direction", "D"), ("input/interval", "4")],
 			},
 		},
+		"zylinder_leo": {
+			"preset": [
+				("focus", "barSync"),
+				("input/channel", "129"),
+				("input/smooth", "0"),
+			],
+			"variations": {
+				0: [("input/colorindex", "3")],
+				1: [("input/colorindex", "5")],
+				2: [("input/colorindex", "7")],
+				3: [("input/colorindex", "1")],
+				4: [("input/orientation", "H"), ("input/direction", "OUT"), ("input/interval", "2")],
+				5: [("input/direction", "U"), ("input/interval", "4")],
+				6: [("input/direction", "D"), ("input/interval", "4")],
+			},
+		},
 	},
 	2: { # rippleSync, good for calm sections
 		"zylinder": {
 			"preset": [
 				("focus", "rippleSync"),
-				("input/channel", "0"),
+				("input/channel", "128"),
 				("input/smooth", "5"),
 			],
 			"variations": {
@@ -52,6 +83,22 @@ presets = {
 				1: [("input/colorindex", "2")],
 				2: [("input/colorindex", "4")],
 				3: [("input/colorindex", "6")],
+				4: [("input/orientation", "H"), ("input/direction", "OUT"), ("input/interval", "2")],
+				5: [("input/direction", "U"), ("input/interval", "4")],
+				6: [("input/direction", "D"), ("input/interval", "4")],
+			},
+		},
+		"zylinder_leo": {
+			"preset": [
+				("focus", "rippleSync"),
+				("input/channel", "129"),
+				("input/smooth", "5"),
+			],
+			"variations": {
+				0: [("input/colorindex", "3")],
+				1: [("input/colorindex", "5")],
+				2: [("input/colorindex", "7")],
+				3: [("input/colorindex", "1")],
 				4: [("input/orientation", "H"), ("input/direction", "OUT"), ("input/interval", "2")],
 				5: [("input/direction", "U"), ("input/interval", "4")],
 				6: [("input/direction", "D"), ("input/interval", "4")],
@@ -69,10 +116,24 @@ presets = {
 				2: [("input/colorindex", "4")],
 				3: [("input/colorindex", "6")],
 				4: [("input/strips", "1")],
-				5: [("input/strips", "4")],
-				6: [("input/strips", "8")],
-				7: [("input/orientation", "H")],
-				8: [("input/orientation", "V")],
+				5: [("input/strips", "2"), ("input/orientation", "H")],
+				6: [("input/strips", "4"), ("input/orientation", "H")],
+				7: [("input/strips", "8"), ("input/orientation", "V")],
+			},
+		},
+		"zylinder_leo": {
+			"preset": [
+				("focus", "simpleHB"),
+			],
+			"variations": {
+				0: [("input/colorindex", "0")],
+				1: [("input/colorindex", "2")],
+				2: [("input/colorindex", "4")],
+				3: [("input/colorindex", "6")],
+				4: [("input/strips", "1"), ("input/offset", "1")],
+				5: [("input/strips", "2"), ("input/offset", "2"), ("input/orientation", "H")],
+				6: [("input/strips", "4"), ("input/offset", "4"), ("input/orientation", "H")],
+				7: [("input/strips", "7"), ("input/offset", "0"), ("input/orientation", "V")],
 			},
 		},
     },
